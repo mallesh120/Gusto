@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gusto_app/screens/cookbook_screen.dart';
+import 'package:gusto_app/models/recipe_model.dart';
 import 'package:gusto_app/screens/shopping_list_screen.dart';
+import 'package:gusto_app/widgets/select_recipe_dialog.dart';
 import 'package:intl/intl.dart';
 
 final selectedDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
+final mealPlanProvider = StateProvider<Map<DateTime, Recipe>>((ref) => ({}));
 
 class MealPlannerScreen extends ConsumerWidget {
   const MealPlannerScreen({super.key});
@@ -59,17 +62,42 @@ class MealPlannerScreen extends ConsumerWidget {
               itemCount: 7,
               itemBuilder: (context, index) {
                 final day = weekDays[index];
+                final recipe = ref.watch(mealPlanProvider)[day];
+
                 return InkWell(
-                  onTap: () {
-                    ref.read(selectedDateProvider.notifier).state = day;
+                  onTap: () async {
+                    final selectedRecipe = await showDialog<Recipe>(
+                      context: context,
+                      builder: (context) => const SelectRecipeDialog(),
+                    );
+                    if (selectedRecipe != null) {
+                      ref
+                          .read(mealPlanProvider.notifier)
+                          .state = {...ref.read(mealPlanProvider), day: selectedRecipe};
+                    }
                   },
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey[300]!),
-                      color: selectedDate.day == day.day ? Theme.of(context).primaryColor.withOpacity(0.2) : Colors.transparent,
+                      color: selectedDate.day == day.day
+                          ? Theme.of(context).primaryColor.withOpacity(0.2)
+                          : Colors.transparent,
                     ),
-                    child: Center(
-                      child: Text(DateFormat('d').format(day)),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(DateFormat('d').format(day)),
+                        if (recipe != null)
+                          Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Text(
+                              recipe.title,
+                              style: Theme.of(context).textTheme.bodySmall,
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 );

@@ -1,0 +1,23 @@
+# General
+.DS_Store
+.idea/
+*.iml
+local.properties
+*.log
+
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Emulators
+.avd
+
+# Sensitive
+google-services.json
+**/GoogleService-Info.plist
+
+# My temporary files
+jules-scratch/

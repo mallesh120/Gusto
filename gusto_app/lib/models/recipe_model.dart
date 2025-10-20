@@ -55,14 +55,16 @@ class Recipe {
 
 class Ingredient {
   final String name;
-  final String quantity;
+  String quantity;
+  final String category;
 
-  Ingredient({required this.name, required this.quantity});
+  Ingredient({required this.name, required this.quantity, this.category = 'Pantry'});
 
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'quantity': quantity,
+      'category': category,
     };
   }
 
@@ -70,6 +72,7 @@ class Ingredient {
     return Ingredient(
       name: map['name'] ?? '',
       quantity: map['quantity'] ?? '',
+      category: map['category'] ?? 'Pantry',
     );
   }
 }

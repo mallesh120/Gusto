@@ -6,6 +6,7 @@ import 'package:gusto_app/services/auth_service.dart';
 import 'package:gusto_app/services/firestore_service.dart';
 import 'package:gusto_app/widgets/recipe_grid_item.dart';
 import 'package:gusto_app/widgets/recipe_list_item.dart';
+import 'package:gusto_app/screens/add_recipe_screen.dart';
 
 final firestoreServiceProvider =
     Provider<FirestoreService>((ref) => FirestoreService());
@@ -73,7 +74,10 @@ class CookbookScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Implement add recipe flow
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddRecipeScreen()),
+          );
         },
         child: const Icon(Icons.add),
       ),
