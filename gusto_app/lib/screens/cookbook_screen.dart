@@ -7,9 +7,8 @@ import 'package:gusto_app/services/firestore_service.dart';
 import 'package:gusto_app/widgets/recipe_grid_item.dart';
 import 'package:gusto_app/widgets/recipe_list_item.dart';
 import 'package:gusto_app/screens/add_recipe_screen.dart';
-
-final firestoreServiceProvider =
-    Provider<FirestoreService>((ref) => FirestoreService());
+import 'package:gusto_app/providers/auth_provider.dart';
+import 'package:gusto_app/providers/firestore_provider.dart';
 
 final recipesStreamProvider = StreamProvider.autoDispose<List<Recipe>>((ref) {
   final firestoreService = ref.watch(firestoreServiceProvider);

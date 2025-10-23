@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gusto_app/models/recipe_model.dart';
-import 'package:gusto_app/services/auth_service.dart';
-import 'package:gusto_app/services/firestore_service.dart';
+import 'package:gusto_app/providers/auth_provider.dart';
+import 'package:gusto_app/providers/firestore_provider.dart';
 import 'package:gusto_app/widgets/limit_reached_dialog.dart';
 
 class AddRecipeScreen extends ConsumerStatefulWidget {

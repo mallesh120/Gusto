@@ -1,4 +1,4 @@
-import 'package.flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:gusto_app/models/recipe_model.dart';
 
 class RecipeListItem extends StatelessWidget {
