@@ -1,49 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
+import '../home/import_recipe_url_screen.dart';
+import '../home/import_youtube_screen.dart';
+import '../home/add_recipe_screen.dart';
 
-class ImportRecipeScreen extends StatefulWidget {
+class ImportRecipeScreen extends StatelessWidget {
   const ImportRecipeScreen({super.key});
-
-  @override
-  State<ImportRecipeScreen> createState() => _ImportRecipeScreenState();
-}
-
-class _ImportRecipeScreenState extends State<ImportRecipeScreen> {
-  final _urlController = TextEditingController();
-  bool _isLoading = false;
-
-  Future<void> _importRecipe() async {
-    if (_urlController.text.isEmpty) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    // TODO: Implement recipe import logic
-    await Future.delayed(const Duration(seconds: 2)); // Simulate API call
-
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.cream,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.brown),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: const Text('Add a Recipe'),
       ),
       body: SafeArea(
         child: Padding(
@@ -52,53 +20,137 @@ class _ImportRecipeScreenState extends State<ImportRecipeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Import Recipe',
-                style: Theme.of(context).textTheme.displayLarge,
+                'How would you like to add a recipe?',
+                style: Theme.of(context).textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              TextField(
-                controller: _urlController,
-                decoration: InputDecoration(
-                  hintText: 'Paste a recipe link here...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
+              _OptionCard(
+                icon: Icons.smart_display_rounded,
+                title: 'Import from YouTube',
+                description: 'Extract recipe from cooking video',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ImportFromYouTubeScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              _OptionCard(
+                icon: Icons.link_rounded,
+                title: 'Import from URL',
+                description: 'Paste a link from a recipe website',
+                gradient: LinearGradient(
+                  colors: [AppTheme.primary, AppTheme.primaryDark],
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ImportRecipeFromUrlScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              _OptionCard(
+                icon: Icons.edit_rounded,
+                title: 'Create Manually',
+                description: 'Enter recipe details yourself',
+                gradient: LinearGradient(
+                  colors: [AppTheme.secondary, const Color(0xFF059669)],
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddRecipeScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final Gradient gradient;
+  final VoidCallback onTap;
+
+  const _OptionCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: gradient,
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  size: 32,
+                  color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _importRecipe,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Text('Add to my Cookbook'),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              if (!_isLoading) ...[
-                const SizedBox(height: 32),
-                const Text(
-                  'Supported websites:',
-                  style: TextStyle(
-                    color: AppTheme.brown,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '• AllRecipes\n• Food Network\n• NYT Cooking\n• Simply Recipes',
-                  style: TextStyle(color: AppTheme.brown),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
             ],
           ),
         ),

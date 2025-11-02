@@ -7,6 +7,8 @@ import 'firebase_options.dart';
 import 'utils/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/shopping_service.dart';
+import 'services/recipe_service.dart';
+import 'services/meal_plan_service.dart';
 import 'screens/onboarding/welcome.dart';
 
 void main() async {
@@ -56,6 +58,12 @@ class GustoApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => ShoppingService(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => RecipeService(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => MealPlanService(),
         ),
         StreamProvider(
           create: (context) => context.read<AuthService>().authStateChanges,

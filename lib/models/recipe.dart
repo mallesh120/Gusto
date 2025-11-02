@@ -64,4 +64,36 @@ class Recipe {
       isImported: map['isImported'] ?? false,
     );
   }
+
+  Recipe copyWith({
+    String? id,
+    String? title,
+    String? description,
+    String? imageUrl,
+    List<String>? ingredients,
+    List<String>? instructions,
+    int? cookingTimeMinutes,
+    int? servings,
+    String? userId,
+    DateTime? createdAt,
+    List<String>? tags,
+    String? notes,
+    bool? isImported,
+  }) {
+    return Recipe(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      imageUrl: imageUrl ?? this.imageUrl,
+      ingredients: ingredients ?? this.ingredients,
+      instructions: instructions ?? this.instructions,
+      cookingTimeMinutes: cookingTimeMinutes ?? this.cookingTimeMinutes,
+      servings: servings ?? this.servings,
+      userId: userId ?? this.userId,
+      createdAt: createdAt ?? this.createdAt,
+      tags: tags ?? this.tags,
+      notes: notes ?? this.notes,
+      isImported: isImported ?? this.isImported,
+    );
+  }
 }
