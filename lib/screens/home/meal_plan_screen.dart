@@ -111,12 +111,12 @@ class _WeekNavigator extends StatelessWidget {
                   const SizedBox(height: 4),
                   TextButton(
                     onPressed: mealPlanService.goToCurrentWeek,
-                    child: const Text('Go to current week'),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
+                    child: const Text('Go to current week'),
                   ),
                 ],
               ],

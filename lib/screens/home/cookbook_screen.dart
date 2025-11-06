@@ -332,7 +332,7 @@ class _CookbookScreenState extends State<CookbookScreen> {
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int?>(
-                      value: _maxCookingTime,
+                      initialValue: _maxCookingTime,
                       decoration: const InputDecoration(
                         labelText: 'Maximum time',
                         suffixText: 'minutes',

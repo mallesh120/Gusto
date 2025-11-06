@@ -1,20 +1,28 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
+import 'dart:async';
 import '../models/meal_plan.dart';
 import '../models/recipe.dart';
 import '../models/shopping_item.dart' as shopping;
+import 'firestore_service.dart';
 
 class MealPlanService extends ChangeNotifier {
+  final FirestoreService _firestoreService = FirestoreService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  
   List<MealPlan> _mealPlans = [];
   bool _isLoading = false;
   String? _error;
   DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
+  StreamSubscription? _plansSubscription;
 
   List<MealPlan> get mealPlans => List.unmodifiable(_mealPlans);
   bool get isLoading => _isLoading;
   String? get error => _error;
   DateTime get selectedWeekStart => _selectedWeekStart;
+  bool get isAuthenticated => _auth.currentUser != null;
 
   static DateTime _getWeekStart(DateTime date) {
     // Get Monday of the week
@@ -22,10 +30,37 @@ class MealPlanService extends ChangeNotifier {
   }
 
   MealPlanService() {
+    _init();
+    // Load initial data
     _loadMealPlans();
   }
 
+  void _init() {
+    _auth.authStateChanges().listen((user) {
+      if (user != null) {
+        _loadFromFirestoreWithMigration();
+      } else {
+        _loadFromLocalStorage();
+        _plansSubscription?.cancel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _plansSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadMealPlans() async {
+    if (isAuthenticated) {
+      await _loadFromFirestoreWithMigration();
+    } else {
+      await _loadFromLocalStorage();
+    }
+  }
+
+  Future<void> _loadFromLocalStorage() async {
     _isLoading = true;
     notifyListeners();
 
@@ -44,7 +79,63 @@ class MealPlanService extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveMealPlans() async {
+  Future<void> _loadFromFirestoreWithMigration() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final hasCloudData = await _firestoreService.hasCloudData();
+      
+      if (!hasCloudData) {
+        await _migrateLocalToCloud();
+      }
+
+      _plansSubscription?.cancel();
+      _plansSubscription = _firestoreService.mealPlansStream()?.listen(
+        (plans) {
+          _mealPlans = plans;
+          _error = null;
+          notifyListeners();
+          _saveToLocalStorage();
+        },
+        onError: (_) {
+          _loadFromLocalStorage();
+        },
+      );
+
+      _mealPlans = await _firestoreService.getMealPlans();
+      _error = null;
+      await _saveToLocalStorage();
+    } catch (e) {
+      _error = 'Failed to sync meal plans: $e';
+      await _loadFromLocalStorage();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _migrateLocalToCloud() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mealPlansJson = prefs.getStringList('meal_plans') ?? [];
+      
+      if (mealPlansJson.isEmpty) return;
+
+      final localPlans = mealPlansJson
+          .map((json) => MealPlan.fromMap(jsonDecode(json)))
+          .toList();
+
+      if (localPlans.isNotEmpty) {
+        await _firestoreService.batchAddMealPlans(localPlans);
+        debugPrint('✅ Migrated ${localPlans.length} meal plans to cloud');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Meal plan migration error: $e');
+    }
+  }
+
+  Future<void> _saveToLocalStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final mealPlansJson = _mealPlans
@@ -52,9 +143,12 @@ class MealPlanService extends ChangeNotifier {
           .toList();
       await prefs.setStringList('meal_plans', mealPlansJson);
     } catch (e) {
-      _error = 'Failed to save meal plans: $e';
-      notifyListeners();
+      debugPrint('⚠️ Failed to cache meal plans: $e');
     }
+  }
+
+  Future<void> _saveMealPlans() async {
+    await _saveToLocalStorage();
   }
 
   // Get meal plans for a specific week
@@ -86,8 +180,16 @@ class MealPlanService extends ChangeNotifier {
     
     if (existingPlan != null) {
       // Update existing
-      final index = _mealPlans.indexOf(existingPlan);
-      _mealPlans[index] = existingPlan.copyWith(recipeId: recipeId);
+      final updated = existingPlan.copyWith(recipeId: recipeId);
+      
+      if (isAuthenticated) {
+        await _firestoreService.updateMealPlan(updated);
+      } else {
+        final index = _mealPlans.indexOf(existingPlan);
+        _mealPlans[index] = updated;
+        notifyListeners();
+        await _saveMealPlans();
+      }
     } else {
       // Add new
       final newPlan = MealPlan(
@@ -96,23 +198,29 @@ class MealPlanService extends ChangeNotifier {
         mealType: mealType,
         recipeId: recipeId,
       );
-      _mealPlans.add(newPlan);
+      
+      if (isAuthenticated) {
+        await _firestoreService.addMealPlan(newPlan);
+      } else {
+        _mealPlans.add(newPlan);
+        notifyListeners();
+        await _saveMealPlans();
+      }
     }
-    
-    notifyListeners();
-    await _saveMealPlans();
   }
 
   // Remove a meal plan
   Future<void> removeMealPlan(DateTime date, String mealType) async {
-    _mealPlans.removeWhere((plan) {
-      return plan.date.year == date.year &&
-          plan.date.month == date.month &&
-          plan.date.day == date.day &&
-          plan.mealType == mealType;
-    });
-    notifyListeners();
-    await _saveMealPlans();
+    final plan = getMealPlan(date, mealType);
+    if (plan == null) return;
+
+    if (isAuthenticated) {
+      await _firestoreService.deleteMealPlan(plan.id);
+    } else {
+      _mealPlans.removeWhere((p) => p.id == plan.id);
+      notifyListeners();
+      await _saveMealPlans();
+    }
   }
 
   // Navigate to previous week
