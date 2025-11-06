@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../models/recipe.dart';
+import '../../models/shopping_item.dart';
+import '../../services/shopping_service.dart';
 import '../../utils/app_theme.dart';
 import 'add_recipe_screen.dart';
 
@@ -564,19 +567,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
           }),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () {
-              // TODO: Add to shopping list
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Added to shopping list!'),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  backgroundColor: AppTheme.secondary,
-                ),
-              );
-            },
+            onPressed: () => _addIngredientsToShoppingList(),
             icon: const Icon(Icons.add_shopping_cart_rounded),
             label: const Text('Add to Shopping List'),
             style: OutlinedButton.styleFrom(
@@ -737,4 +728,318 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       ),
     );
   }
+
+  Future<void> _addIngredientsToShoppingList() async {
+    final shoppingService = context.read<ShoppingService>();
+    
+    // Add each ingredient to shopping list
+    int addedCount = 0;
+    int updatedCount = 0;
+    
+    for (final ingredient in widget.recipe.ingredients) {
+      final ingredientName = ingredient.trim();
+      if (ingredientName.isEmpty) continue;
+      
+      // Parse ingredient into quantity and item name
+      final parsed = _parseIngredient(ingredientName);
+      final baseItemName = parsed['itemName'] as String;
+      final quantity = parsed['quantity'] as String;
+      final unit = parsed['unit'] as String;
+      
+      // Check if similar item already exists (case-insensitive, comparing base item names)
+      final existingItem = shoppingService.items.firstWhere(
+        (item) {
+          final itemParsed = _parseIngredient(item.name);
+          final itemBaseName = itemParsed['itemName'] as String;
+          return itemBaseName.toLowerCase() == baseItemName.toLowerCase();
+        },
+        orElse: () => ShoppingItem(
+          id: '',
+          name: '',
+          category: Category.other,
+          userId: 'local',
+        ),
+      );
+      
+      if (existingItem.id.isEmpty) {
+        // Create new shopping item
+        final item = ShoppingItem(
+          id: DateTime.now().millisecondsSinceEpoch.toString() + 
+               ingredientName.hashCode.toString(),
+          name: ingredientName,
+          category: _categorizeIngredient(ingredientName),
+          recipeId: widget.recipe.id,
+          userId: 'local',
+        );
+        
+        await shoppingService.addItem(item);
+        addedCount++;
+      } else {
+        // Item exists - try to combine quantities
+        final existingParsed = _parseIngredient(existingItem.name);
+        final existingQuantity = existingParsed['quantity'] as String;
+        final existingUnit = existingParsed['unit'] as String;
+        final existingItemName = existingParsed['itemName'] as String;
+        
+        // Try to combine if units match
+        final combined = _combineQuantities(
+          existingQuantity, 
+          existingUnit, 
+          quantity, 
+          unit,
+        );
+        
+        if (combined != null) {
+          // Update with combined quantity
+          final updatedName = combined.isEmpty 
+            ? existingItemName 
+            : '$combined $existingItemName';
+          
+          final updatedItem = existingItem.copyWith(
+            name: updatedName,
+          );
+          
+          await shoppingService.updateItem(updatedItem);
+          updatedCount++;
+        } else {
+          // Can't combine, add as separate item
+          final item = ShoppingItem(
+            id: DateTime.now().millisecondsSinceEpoch.toString() + 
+                 ingredientName.hashCode.toString(),
+            name: ingredientName,
+            category: _categorizeIngredient(ingredientName),
+            recipeId: widget.recipe.id,
+            userId: 'local',
+          );
+          
+          await shoppingService.addItem(item);
+          addedCount++;
+        }
+      }
+    }
+    
+    if (mounted) {
+      String message;
+      if (addedCount > 0 && updatedCount > 0) {
+        message = 'Added $addedCount new, combined $updatedCount existing ingredients!';
+      } else if (addedCount > 0) {
+        message = 'Added $addedCount ingredient${addedCount > 1 ? 's' : ''} to shopping list!';
+      } else if (updatedCount > 0) {
+        message = 'Combined $updatedCount ingredient${updatedCount > 1 ? 's' : ''} with existing items!';
+      } else {
+        message = 'All ingredients already in shopping list';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          backgroundColor: AppTheme.secondary,
+          action: SnackBarAction(
+            label: 'View',
+            textColor: Colors.white,
+            onPressed: () {
+              // Navigate to shopping list screen
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      );
+    }
+  }
+  
+  Map<String, String> _parseIngredient(String ingredient) {
+    // Pattern: "2 cups all-purpose flour" or "1/2 tsp salt" or "3-4 tomatoes"
+    final regex = RegExp(
+      r'^([\d./\-\s¼½¾⅓⅔⅛⅜⅝⅞]+)?\s*(cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|oz|ounce|ounces|lb|pound|pounds|g|gram|grams|kg|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters|clove|cloves|piece|pieces|slice|slices|can|cans|package|packages|pinch|dash)?\s*(.+)',
+      caseSensitive: false,
+    );
+    
+    final match = regex.firstMatch(ingredient.trim());
+    
+    if (match != null) {
+      final quantity = match.group(1)?.trim() ?? '';
+      final unit = match.group(2)?.trim() ?? '';
+      final itemName = match.group(3)?.trim() ?? ingredient;
+      
+      return {
+        'quantity': quantity,
+        'unit': unit,
+        'itemName': itemName,
+      };
+    }
+    
+    // No quantity/unit found, treat whole thing as item name
+    return {
+      'quantity': '',
+      'unit': '',
+      'itemName': ingredient.trim(),
+    };
+  }
+  
+  String? _combineQuantities(String qty1, String unit1, String qty2, String unit2) {
+    // Only combine if units match (or both are empty)
+    if (unit1.toLowerCase() != unit2.toLowerCase()) {
+      return null;
+    }
+    
+    // Parse quantities - handle fractions and decimals
+    final num1 = _parseQuantityToDecimal(qty1);
+    final num2 = _parseQuantityToDecimal(qty2);
+    
+    if (num1 == null || num2 == null) {
+      return null; // Can't parse, don't combine
+    }
+    
+    final total = num1 + num2;
+    
+    // Format result nicely
+    final formatted = _formatQuantity(total);
+    
+    return unit1.isEmpty ? formatted : '$formatted $unit1';
+  }
+  
+  double? _parseQuantityToDecimal(String quantity) {
+    if (quantity.isEmpty) return null;
+    
+    final trimmed = quantity.trim();
+    
+    // Handle fractions with unicode characters
+    final fractionMap = {
+      '¼': 0.25, '½': 0.5, '¾': 0.75,
+      '⅓': 0.333, '⅔': 0.667,
+      '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875,
+    };
+    
+    for (final entry in fractionMap.entries) {
+      if (trimmed.contains(entry.key)) {
+        final replaced = trimmed.replaceAll(entry.key, '');
+        final whole = double.tryParse(replaced.trim()) ?? 0.0;
+        return whole + entry.value;
+      }
+    }
+    
+    // Handle "1/2", "1/4", etc.
+    if (trimmed.contains('/')) {
+      final parts = trimmed.split('/');
+      if (parts.length == 2) {
+        final numerator = double.tryParse(parts[0].trim());
+        final denominator = double.tryParse(parts[1].trim());
+        if (numerator != null && denominator != null && denominator != 0) {
+          return numerator / denominator;
+        }
+      }
+      
+      // Handle "1 1/2" format
+      final spaceMatch = RegExp(r'(\d+)\s+(\d+)/(\d+)').firstMatch(trimmed);
+      if (spaceMatch != null) {
+        final whole = double.tryParse(spaceMatch.group(1) ?? '0') ?? 0;
+        final numerator = double.tryParse(spaceMatch.group(2) ?? '0') ?? 0;
+        final denominator = double.tryParse(spaceMatch.group(3) ?? '1') ?? 1;
+        return whole + (numerator / denominator);
+      }
+    }
+    
+    // Handle ranges like "3-4" - take average
+    if (trimmed.contains('-') && !trimmed.startsWith('-')) {
+      final parts = trimmed.split('-');
+      if (parts.length == 2) {
+        final num1 = double.tryParse(parts[0].trim());
+        final num2 = double.tryParse(parts[1].trim());
+        if (num1 != null && num2 != null) {
+          return (num1 + num2) / 2;
+        }
+      }
+    }
+    
+    // Regular decimal or integer
+    return double.tryParse(trimmed);
+  }
+  
+  String _formatQuantity(double quantity) {
+    // Format nicely - remove unnecessary decimals
+    if (quantity == quantity.roundToDouble()) {
+      return quantity.round().toString();
+    }
+    
+    // Check if it's close to common fractions
+    final fractions = {
+      0.25: '¼', 0.5: '½', 0.75: '¾',
+      0.333: '⅓', 0.667: '⅔',
+      0.125: '⅛', 0.375: '⅜', 0.625: '⅝', 0.875: '⅞',
+    };
+    
+    final whole = quantity.floor();
+    final decimal = quantity - whole;
+    
+    for (final entry in fractions.entries) {
+      if ((decimal - entry.key).abs() < 0.01) {
+        return whole > 0 ? '$whole${entry.value}' : entry.value;
+      }
+    }
+    
+    // Format with 1-2 decimal places
+    return quantity.toStringAsFixed(quantity.truncateToDouble() == quantity ? 0 : 
+                                     (quantity * 10).truncateToDouble() == quantity * 10 ? 1 : 2);
+  }
+
+  Category _categorizeIngredient(String ingredient) {
+    final lowerIngredient = ingredient.toLowerCase();
+    
+    // Produce
+    if (_containsAny(lowerIngredient, [
+      'lettuce', 'tomato', 'onion', 'garlic', 'potato', 'carrot', 
+      'celery', 'pepper', 'broccoli', 'spinach', 'mushroom', 'cucumber',
+      'avocado', 'lemon', 'lime', 'apple', 'banana', 'orange', 'berry',
+      'basil', 'parsley', 'cilantro', 'mint', 'thyme', 'rosemary',
+      'ginger', 'chili', 'jalapeño', 'bell pepper', 'green onion',
+      'scallion', 'shallot', 'kale', 'cabbage', 'zucchini', 'squash',
+    ])) {
+      return Category.produce;
+    }
+    
+    // Meat and Seafood
+    if (_containsAny(lowerIngredient, [
+      'chicken', 'beef', 'pork', 'lamb', 'turkey', 'duck', 'bacon',
+      'sausage', 'ham', 'fish', 'salmon', 'tuna', 'shrimp', 'prawn',
+      'crab', 'lobster', 'scallop', 'meat', 'steak', 'ground beef',
+      'ground turkey', 'ground chicken',
+    ])) {
+      return Category.meatAndSeafood;
+    }
+    
+    // Dairy and Eggs
+    if (_containsAny(lowerIngredient, [
+      'milk', 'cream', 'butter', 'cheese', 'yogurt', 'egg', 'mozzarella',
+      'parmesan', 'cheddar', 'feta', 'ricotta', 'sour cream', 'heavy cream',
+      'half and half', 'whipped cream',
+    ])) {
+      return Category.dairyAndEggs;
+    }
+    
+    // Pantry (grains, oils, spices, canned goods, etc.)
+    if (_containsAny(lowerIngredient, [
+      'flour', 'sugar', 'salt', 'pepper', 'oil', 'olive oil', 'vegetable oil',
+      'rice', 'pasta', 'bread', 'noodle', 'quinoa', 'oat', 'cereal',
+      'stock', 'broth', 'sauce', 'vinegar', 'soy sauce', 'honey',
+      'vanilla', 'cinnamon', 'paprika', 'cumin', 'oregano', 'bay leaf',
+      'cardamom', 'coriander', 'turmeric', 'chili powder', 'cayenne',
+      'baking powder', 'baking soda', 'yeast', 'cornstarch', 'cocoa',
+      'chocolate', 'can', 'canned', 'jar', 'bottled', 'dried',
+      'masala', 'garam masala', 'curry powder', 'spice',
+    ])) {
+      return Category.pantry;
+    }
+    
+    // Default to other
+    return Category.other;
+  }
+
+  bool _containsAny(String text, List<String> keywords) {
+    return keywords.any((keyword) => text.contains(keyword));
+  }
 }
+

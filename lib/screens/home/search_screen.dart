@@ -24,7 +24,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  List<String> _selectedTags = [];
+  final List<String> _selectedTags = [];
   int? _maxCookingTime;
   SortOption _sortOption = SortOption.dateNewest;
   bool _showFilters = false;

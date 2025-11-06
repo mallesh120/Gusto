@@ -9,17 +9,9 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        // TODO: Replace with your Android configuration
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
-        // TODO: Replace with your iOS configuration
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -50,6 +42,23 @@ class DefaultFirebaseOptions {
     authDomain: 'gusto-476917.firebaseapp.com',
     storageBucket: 'gusto-476917.firebasestorage.app',
     measurementId: 'G-EF48RWB53G',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBSTCOkfhdseeU3BHPopob43NcxR_F3jTA',
+    appId: '1:55871689441:ios:db6b6fb2847507984adda0',
+    messagingSenderId: '55871689441',
+    projectId: 'gusto-476917',
+    storageBucket: 'gusto-476917.firebasestorage.app',
+    iosBundleId: 'com.example.gusto',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyBSTCOkfhdseeU3BHPopob43NcxR_F3jTA',
+    appId: '1:55871689441:android:52806b0673cd0c174adda0',
+    messagingSenderId: '55871689441',
+    projectId: 'gusto-476917',
+    storageBucket: 'gusto-476917.firebasestorage.app',
   );
 
 }

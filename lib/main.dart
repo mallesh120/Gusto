@@ -9,13 +9,23 @@ import 'services/auth_service.dart';
 import 'services/shopping_service.dart';
 import 'services/recipe_service.dart';
 import 'services/meal_plan_service.dart';
-import 'screens/onboarding/welcome.dart';
+import 'services/subscription_service.dart';
+import 'screens/onboarding/welcome_screen.dart';
+import 'screens/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  
+  // Initialize Firebase only if not already initialized
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  // Firestore cloud sync is now enabled
+  // Data will automatically sync across devices when logged in
+  
   // Initialize GoogleSignIn singleton once at startup.
   // For web you must provide a clientId (or set a meta tag in web/index.html).
   // You can pass client IDs via `--dart-define=GOOGLE_CLIENT_ID=<id>` and
@@ -57,6 +67,9 @@ class GustoApp extends StatelessWidget {
           create: (_) => AuthService(),
         ),
         ChangeNotifierProvider(
+          create: (_) => SubscriptionService(),
+        ),
+        ChangeNotifierProvider(
           create: (_) => ShoppingService(),
         ),
         ChangeNotifierProvider(
@@ -73,7 +86,28 @@ class GustoApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Gusto',
         theme: AppTheme.theme,
-        home: const OnboardingScreen(),
+        home: Consumer<AuthService>(
+          builder: (context, authService, _) {
+            return StreamBuilder(
+              stream: authService.authStateChanges,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.active) {
+                  final user = snapshot.data;
+                  if (user != null) {
+                    return const HomeScreen();
+                  }
+                  return const WelcomeScreen();
+                }
+                // Loading state
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              },
+            );
+          },
+        ),
         debugShowCheckedModeBanner: false,
       ),
     );

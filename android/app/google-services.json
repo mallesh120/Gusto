@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "55871689441",
+    "project_id": "gusto-476917",
+    "storage_bucket": "gusto-476917.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:55871689441:android:52806b0673cd0c174adda0",
+        "android_client_info": {
+          "package_name": "com.example.gusto"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "55871689441-0iofjsogsll05j3n7gf3jvqnqksgtl71.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCF8mGTqcvoBSaHetQJhY3QiVTNqSv3ug4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "55871689441-0iofjsogsll05j3n7gf3jvqnqksgtl71.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "55871689441-lbe17hs9r8uaoaj8elvfcgeo6h63gpsk.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.gusto"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

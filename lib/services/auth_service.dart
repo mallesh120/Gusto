@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -47,6 +47,25 @@ class AuthService {
   // Google Sign In
   Future<UserCredential> signInWithGoogle() async {
     try {
+      // On web, use Firebase's built-in popup/redirect flow instead of google_sign_in
+      // The google_sign_in package doesn't support authenticate() on web
+      if (kIsWeb) {
+        debugPrint('🌐 Using Firebase popup for web Google Sign In');
+        GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        
+        // Set custom parameters to improve UX
+        googleProvider.setCustomParameters({
+          'prompt': 'select_account', // Always show account selection
+        });
+        
+        // Use popup for web - requires authorized domains in Firebase Console
+        // Go to: Firebase Console > Authentication > Settings > Authorized domains
+        // Add: localhost, your-domain.com
+        return await _auth.signInWithPopup(googleProvider);
+      }
+
       final GoogleSignIn signIn = _googleSignIn;
 
       // Interactive authenticate where supported, otherwise attempt lightweight
@@ -86,9 +105,15 @@ class AuthService {
     } catch (e) {
       // Debug logging to help diagnose web auth issues during development.
       try {
-        debugPrint('AuthService.signInWithGoogle error: ${e.runtimeType} -> $e');
+        debugPrint('❌ AuthService.signInWithGoogle error: ${e.runtimeType} -> $e');
         if (e is FirebaseAuthException) {
-          debugPrint('FirebaseAuthException code=${e.code} message=${e.message}');
+          debugPrint('   FirebaseAuthException code=${e.code} message=${e.message}');
+          if (e.code == 'configuration-not-found') {
+            debugPrint('   ⚠️ Firebase Auth configuration issue:');
+            debugPrint('   1. Go to Firebase Console > Authentication');
+            debugPrint('   2. Enable Google Sign-In provider');
+            debugPrint('   3. Add authorized domain (localhost for testing)');
+          }
         }
       } catch (_) {}
       throw _handleAuthError(e);
@@ -178,6 +203,20 @@ class AuthService {
           return 'No user found for that email.';
         case 'wrong-password':
           return 'Wrong password provided.';
+        case 'popup-closed-by-user':
+          return 'Sign in cancelled.';
+        case 'popup-blocked':
+          return 'Sign in popup was blocked. Please allow popups for this site.';
+        case 'cancelled-popup-request':
+          return 'Sign in cancelled.';
+        case 'network-request-failed':
+          return 'Network error. Please check your internet connection.';
+        case 'configuration-not-found':
+          return 'Google Sign-In is not properly configured. Please contact support.';
+        case 'auth/invalid-api-key':
+          return 'Invalid Firebase configuration. Please check your setup.';
+        case 'unauthorized-domain':
+          return 'This domain is not authorized for Google Sign-In.';
         default:
           return 'Authentication error: ${error.message}';
       }
